@@ -64,6 +64,13 @@ class KeithleyWaveformApp(QMainWindow):
         self.phase_input.setText("0.0")
         phase_layout.addWidget(self.phase_input)
 
+        offset_layout = QVBoxLayout()
+        offset_layout.addWidget(QLabel("Offset (V)"))
+        self.offset_input = QLineEdit()
+        self.offset_input.setText("0.0")
+        offset_layout.addWidget(self.offset_input)
+        self.input_layout.addLayout(offset_layout)
+
         res_layout = QVBoxLayout()
         res_layout.addWidget(QLabel("Voltage Resolution (V)"))
         self.interval_input = QLineEdit()
@@ -137,6 +144,8 @@ class KeithleyWaveformApp(QMainWindow):
                     continue
             t = np.array(t)
             v = np.array(v)
+        offset = float(self.offset_input.text() or 0)
+        v += offset
         return t, v
 
     def plot_waveform(self):
@@ -168,6 +177,8 @@ class KeithleyWaveformApp(QMainWindow):
         elif waveform_type == "Custom":
             t_full = t
             v_full = v
+        offset = float(self.offset_input.text() or 0)
+        v_full += offset
 
         self.figure.clear()
         ax = self.figure.add_subplot(111)
