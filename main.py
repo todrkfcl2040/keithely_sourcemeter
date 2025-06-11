@@ -121,7 +121,8 @@ class KeithleyWaveformApp(QMainWindow):
         amp = float(self.amplitude_input.text() or 0)
         freq = float(self.freq_input.text() or 1)
         phase = float(self.phase_input.text() or 0)
-        t = np.linspace(0, 1 / freq, 1000)
+        total_time = 1.0 / freq
+        t = np.arange(0, total_time, 0.02)
 
         if waveform == "Sine":
             v = amp * np.sin(2 * np.pi * freq * t + np.deg2rad(phase))
@@ -228,16 +229,21 @@ class KeithleyWaveformApp(QMainWindow):
             self.instrument.write("SENS:CURR:PROT 0.1")
             self.instrument.write("OUTP ON")
             time.sleep(0.1)  # Wait for the instrument to stabilize
-            
+
             try:
                 status = self.instrument.query("OUTP?")
                 print("Output status:", status)
             except Exception as e:
                 print("Warning: Failed to read output status. Proceeding anyway.")
 
+            # Debug print for interval and repeat info
+            print(f"Interval: 0.02 s, Repeats: {repeat_count}, Total samples: {len(voltages)}")
+
             for _ in range(repeat_count):
                 for v in voltages:
                     v = round(v / resolution) * resolution
+                    # Debug print for each voltage value
+                    print(f"Sending voltage: {v:.4f}")
                     self.instrument.write(f"SOUR:VOLT {v:.4f}")
                     time.sleep(0.02)
 
