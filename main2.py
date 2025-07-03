@@ -8,11 +8,13 @@ from PyQt5.QtWidgets import (
     QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QHBoxLayout, QMessageBox,
     QGridLayout
 )
+from PyQt5.QtCore import pyqtSignal
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 
 class KeithleyPanel(QWidget):
+    finished = pyqtSignal()   # emitted when a waveform run completes
     def __init__(self, resource_str, title, panel_name):
         super().__init__()
         self.simulation_mode = False
@@ -304,6 +306,7 @@ class KeithleyPanel(QWidget):
 
         if self.simulation_mode:
             QMessageBox.information(self, "Simulation", f"Simulated sending of waveform\nDuration: {total_duration:.2f}s")
+            self.finished.emit()
             return
 
         try:
@@ -346,8 +349,10 @@ class KeithleyPanel(QWidget):
                     time.sleep(0.02)
 
             self.instrument.write("OUTP OFF")
+            self.finished.emit()
         except Exception as e:
             QMessageBox.critical(self, "Communication Error", str(e))
+            self.finished.emit()
 
     def pause_waveform(self):
         self.paused = not self.paused
@@ -459,13 +464,20 @@ class DualKeithleyApp(QMainWindow):
         self.seq_run_btn.clicked.connect(self.run_sequence)
 
     def run_sequence(self):
+        """Run the two panels strictly sequentially using the `finished` signal."""
         order = self.mode_combo.currentIndex()
         if order == 0:
-            self.gpib_panel.send_waveform_to_keithley()
-            self.serial_panel.send_waveform_to_keithley()
+            first, second = self.gpib_panel, self.serial_panel
         else:
-            self.serial_panel.send_waveform_to_keithley()
-            self.gpib_panel.send_waveform_to_keithley()
+            first, second = self.serial_panel, self.gpib_panel
+
+        # Define a slot that starts the second panel once the first is done
+        def start_second():
+            first.finished.disconnect(start_second)   # prevent multiple triggers
+            second.send_waveform_to_keithley()
+
+        first.finished.connect(start_second)
+        first.send_waveform_to_keithley()
 
 
 
