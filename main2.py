@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (
     QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QHBoxLayout, QMessageBox,
     QGridLayout
 )
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtCore import pyqtSignal, QTimer
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
@@ -349,6 +349,13 @@ class KeithleyPanel(QWidget):
                     time.sleep(0.02)
 
             self.instrument.write("OUTP OFF")
+
+            # Wait until all buffered commands are processed to avoid 102 errors
+            try:
+                self.instrument.query("*OPC?")   # blocks until SMU reports “operation complete”
+            except Exception:
+                pass   # ignore if query fails; safety delay is still achieved
+
             self.finished.emit()
         except Exception as e:
             QMessageBox.critical(self, "Communication Error", str(e))
@@ -474,7 +481,8 @@ class DualKeithleyApp(QMainWindow):
         # Define a slot that starts the second panel once the first is done
         def start_second():
             first.finished.disconnect(start_second)   # prevent multiple triggers
-            second.send_waveform_to_keithley()
+            # 120 ms delay gives the first instrument time to clear any buffers
+            QTimer.singleShot(120, second.send_waveform_to_keithley)
 
         first.finished.connect(start_second)
         first.send_waveform_to_keithley()
